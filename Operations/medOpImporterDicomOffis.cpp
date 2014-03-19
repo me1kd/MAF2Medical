@@ -85,6 +85,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkProperty2D.h"
 #include "vtkIntArray.h"
 #include "vtkFloatArray.h"
+#include "vtkDataArray.h"
 
 #include "vtkDataSetWriter.h"
 #include "vtkRectilinearGrid.h"
@@ -98,6 +99,16 @@ PURPOSE.  See the above copyright notice for more information.
 
 #include "windows.h"
 #include <algorithm>
+
+#include "vtkTransform.h"
+#include "vtkTransformFilter.h"
+#include "vtkThreshold.h"
+#include "vtkUnstructuredGrid.h"
+#include "vtkStructuredGrid.h"
+#include "vtkSmartPointer.h"
+#include "vtkPointSet.h"
+#include "vtkImageThreshold.h"
+#include "vtkDoubleArray.h"
 
 
 
@@ -1337,12 +1348,18 @@ int medOpImporterDicomOffis::BuildOutputVMEGrayVolumeFromDicom()
 		rg_out->Modified();
 		delete guiAdv;
 	}
-	m_Volume->SetDataByDetaching(rg_out,0);
 
+	//vtkPointSet* ps_out ;//27/02/2014 Kewei
+	vtkMAFSmartPointer<vtkRectilinearGrid> rgrid_totvol; //12/03/2014 Kewei
 	if (m_SeriesIDContainsRotationsMap[m_SelectedSeriesID] == true && m_ApplyRotation)
 	{
 		double orientation[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
 		m_SelectedSeriesSlicesList->Item(m_ZCropBounds[0])->GetData()->GetDcmImageOrientationPatient(orientation);
+
+		for(int i = 0; i < 6; i++)
+		{
+			orientation[i] = ceil(orientation[i]-0.5);
+		}
 
 		//transform direction cosines to be used to set vtkMatrix
 		/* [ orientation[0]  orientation[1]  orientation[2]  -dst_pos_x ] 
@@ -1351,12 +1368,14 @@ int medOpImporterDicomOffis::BuildOutputVMEGrayVolumeFromDicom()
 		[ 0                 0                 0                 1          ]*/
 
 		double dst_nrm_dircos_x = orientation[1] * orientation[5] - orientation[2] * orientation[4]; 
-		double dst_nrm_dircos_y = orientation[2] * orientation[2] - orientation[0] * orientation[5]; 
+		//double dst_nrm_dircos_y = orientation[2] * orientation[2] - orientation[0] * orientation[5]; 
+		double dst_nrm_dircos_y = orientation[2] * orientation[3] - orientation[0] * orientation[5]; //Kewei Duan: 17/01/2014. Coding typo? Modified.
 		double dst_nrm_dircos_z = orientation[0] * orientation[4] - orientation[1] * orientation[3]; 
 
 		vtkMatrix4x4 *mat = vtkMatrix4x4::New();
 		mat->Identity();
 
+		
 		mat->SetElement(0,0,orientation[0]);
 		mat->SetElement(1,0,orientation[3]);
 		mat->SetElement(2,0,dst_nrm_dircos_x);
@@ -1371,11 +1390,147 @@ int medOpImporterDicomOffis::BuildOutputVMEGrayVolumeFromDicom()
 		mat->SetElement(3,2,0);
 		mat->SetElement(3,3,1);
 
+
+		vtkMAFSmartPointer<vtkDataArray> temp_coord[3];
+		temp_coord[0] = rg_out->GetXCoordinates();
+		temp_coord[1] = rg_out->GetYCoordinates();
+		temp_coord[2] = rg_out->GetZCoordinates();
+		
+
+		int temp_dimensions[3];
+		temp_dimensions[0] = temp_coord[1]->GetNumberOfTuples();
+		temp_dimensions[1] = temp_coord[0]->GetNumberOfTuples();
+		temp_dimensions[2] = temp_coord[2]->GetNumberOfTuples();
+
+		rgrid_totvol->SetDimensions(temp_dimensions[1],temp_dimensions[0],temp_dimensions[2]);
+		rgrid_totvol->SetXCoordinates(temp_coord[1]);
+        rgrid_totvol->SetYCoordinates(temp_coord[0]);
+        rgrid_totvol->SetZCoordinates(temp_coord[2]);
+
+		rgrid_totvol->GetPointData()->SetScalars(rg_out->GetPointData()->GetScalars());
+
+        rgrid_totvol->Update();
+
+		/*
+		//Newly added for test with corresponding headers 27/02/2014 Kewei
+		vtkTransformFilter* temp_vtkTF = vtkTransformFilter::New();
+		vtkTransform* temp_vtkT = vtkTransform::New();
+		temp_vtkT->SetMatrix(mat);
+		temp_vtkTF->SetTransform(temp_vtkT);
+
+
+		vtkMAFSmartPointer<vtkDataArray> temp_coord[3];
+		temp_coord[0] = rg_out->GetXCoordinates();
+		temp_coord[1] = rg_out->GetYCoordinates();
+		temp_coord[2] = rg_out->GetZCoordinates();
+		int temp_dimensions[3];
+		temp_dimensions[0] = temp_coord[0]->GetNumberOfTuples();
+		temp_dimensions[1] = temp_coord[1]->GetNumberOfTuples();
+		temp_dimensions[2] = temp_coord[2]->GetNumberOfTuples();
+		vtkMAFSmartPointer<vtkStructuredGrid> sg;
+
+		vtkMAFSmartPointer<vtkPoints> points;
+		double x,y,z;
+
+		for(unsigned int k = 0; k < temp_dimensions[2]; k++)
+        {
+            z=temp_coord[2]->GetComponent(k, 0);
+            for(unsigned int j = 0; j < temp_dimensions[1]; j++)
+            {
+                y=temp_coord[1]->GetComponent(j, 0);
+                for(unsigned int i = 0; i < temp_dimensions[0]; i++)
+                {
+                    x=temp_coord[0]->GetComponent(i, 0);
+                    points->InsertNextPoint(x, y, z);
+                }
+            }
+        }
+
+		sg->SetDimensions(temp_dimensions);
+		sg->SetPoints(points);
+		sg->Update();
+
+	    // the algorithm you need is called vtkProbefilter
+        vtkMAFSmartPointer<vtkProbeFilter> sampleVolume1;
+
+        // This is the final destination where you want to project your datatset (in your case a rectilinear grid)
+        sampleVolume1->SetInput(sg);
+
+        //The source is the dataset to probe  --> in your case a vtk PointSets(UnstructuredGrid)
+        sampleVolume1->SetSource(rg_out);
+
+        // run the algorithm
+        sampleVolume1->Update();
+
+
+		temp_vtkTF->SetInput(sg);
+		temp_vtkTF->Update();
+		ps_out = temp_vtkTF->GetOutput();
+		double m_bounds[6];
+		ps_out->GetBounds(m_bounds);
+		//
+
+		
+		//Code provided by Simone to convert PointSets to vtkRectilinearGrid
+		//Input data for the probe filter operation
+		double m_spacingXYZ[3];
+		m_spacingXYZ[0]=0.4;
+		m_spacingXYZ[1]=0.4;
+		m_spacingXYZ[2]=0.4;
+
+        vtkMAFSmartPointer<vtkRectilinearGrid> rgrid_totvol;
+        int resolution[3];
+        resolution[0] = ceil(m_spacingXYZ[0]*(m_bounds[1]-m_bounds[0]));
+        resolution[1] = ceil(m_spacingXYZ[1]*(m_bounds[3]-m_bounds[2]));
+        resolution[2] = ceil(m_spacingXYZ[2]*(m_bounds[5]-m_bounds[4]));
+
+        rgrid_totvol->SetDimensions(resolution[0],resolution[1],resolution[2]);
+
+        //Coordinates
+        vtkMAFSmartPointer<vtkDoubleArray> daVector[3];
+        daVector[0]->SetNumberOfValues(resolution[0]);
+        daVector[1]->SetNumberOfValues(resolution[1]);
+        daVector[2]->SetNumberOfValues(resolution[2]);
+
+        for (int arrayId=0; arrayId<3; arrayId++)
+        {
+                for (int valueId = 0; valueId<resolution[arrayId]; valueId++)
+                {
+                        double Val = m_bounds[2*arrayId] + m_spacingXYZ[arrayId]*((double)(valueId));
+                        daVector[arrayId]->SetValue(valueId, Val);
+                }
+        }
+
+        rgrid_totvol->SetXCoordinates(daVector[0]);
+        rgrid_totvol->SetYCoordinates(daVector[1]);
+        rgrid_totvol->SetZCoordinates(daVector[2]);
+
+        rgrid_totvol->Update();
+
+		 // the algorithm you need is called vtkProbefilter
+        vtkMAFSmartPointer<vtkProbeFilter> sampleVolume2;
+
+        // This is the final destination where you want to project your datatset (in your case a rectilinear grid)
+        sampleVolume2->SetInput(rgrid_totvol);
+
+        //The source is the dataset to probe  --> in your case a vtk PointSets(UnstructuredGrid)
+        sampleVolume2->SetSource(ps_out);
+
+        // run the algorithm
+        sampleVolume2->Update();
+
+		//
+
+		
+        */
 		mafSmartPointer<mafTransform> boxPose;
 		boxPose->SetMatrix(mat);     
 		boxPose->Update();
+		mafMatrix tempMatrix = boxPose->GetMatrix();
 		m_Volume->SetAbsMatrix(boxPose->GetMatrix());
 	}
+
+	m_Volume->SetDataByDetaching(rgrid_totvol,0);
 
 	if(m_ResampleFlag == TRUE)
 	{
@@ -2125,7 +2280,8 @@ vtkPolyData* medOpImporterDicomOffis::ExtractPolyData(int ts, int silceId)
 		[ 0                 0                 0                 1          ]*/
 
 		double dst_nrm_dircos_x = orientation[1] * orientation[5] - orientation[2] * orientation[4]; 
-		double dst_nrm_dircos_y = orientation[2] * orientation[2] - orientation[0] * orientation[5]; 
+		//double dst_nrm_dircos_y = orientation[2] * orientation[2] - orientation[0] * orientation[5]; 
+		double dst_nrm_dircos_y = orientation[2] * orientation[3] - orientation[0] * orientation[5]; //Modified by Kewei Duan, 22/01/2014 Typo?
 		double dst_nrm_dircos_z = orientation[0] * orientation[4] - orientation[1] * orientation[3]; 
 
 		mat->SetElement(0,0,orientation[0]);

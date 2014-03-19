@@ -552,12 +552,12 @@ void mafViewOrthoSlice::GizmoCreate()
 		m_ChildViewList[1]->VmeShow(m_Gizmo[GIZMO_YN]->GetOutput(), true);
 
 		// YN view
-		m_ChildViewList[3]->VmeShow(m_Gizmo[GIZMO_XN]->GetOutput(), true);
-		m_ChildViewList[3]->VmeShow(m_Gizmo[GIZMO_ZN]->GetOutput(), true);
+		m_ChildViewList[2]->VmeShow(m_Gizmo[GIZMO_XN]->GetOutput(), true);
+		m_ChildViewList[2]->VmeShow(m_Gizmo[GIZMO_ZN]->GetOutput(), true);
 
 		// ZN view
-		m_ChildViewList[2]->VmeShow(m_Gizmo[GIZMO_YN]->GetOutput(), true);
-		m_ChildViewList[2]->VmeShow(m_Gizmo[GIZMO_ZN]->GetOutput(), true);
+		m_ChildViewList[3]->VmeShow(m_Gizmo[GIZMO_YN]->GetOutput(), true);
+		m_ChildViewList[3]->VmeShow(m_Gizmo[GIZMO_ZN]->GetOutput(), true);
 	}
 
 
@@ -581,12 +581,12 @@ void mafViewOrthoSlice::GizmoDelete()
   m_ChildViewList[1]->VmeShow(m_Gizmo[GIZMO_YN]->GetOutput(), false);
 
   // YN view
-  m_ChildViewList[3]->VmeShow(m_Gizmo[GIZMO_XN]->GetOutput(), false);
-  m_ChildViewList[3]->VmeShow(m_Gizmo[GIZMO_ZN]->GetOutput(), false);
+  m_ChildViewList[2]->VmeShow(m_Gizmo[GIZMO_XN]->GetOutput(), false);
+  m_ChildViewList[2]->VmeShow(m_Gizmo[GIZMO_ZN]->GetOutput(), false);
 
   // XN view
-  m_ChildViewList[2]->VmeShow(m_Gizmo[GIZMO_YN]->GetOutput(), false);
-  m_ChildViewList[2]->VmeShow(m_Gizmo[GIZMO_ZN]->GetOutput(), false);
+  m_ChildViewList[3]->VmeShow(m_Gizmo[GIZMO_YN]->GetOutput(), false);
+  m_ChildViewList[3]->VmeShow(m_Gizmo[GIZMO_ZN]->GetOutput(), false);
   for(int i=0; i<3; i++)
   {
     cppDEL(m_Gizmo[i]);

@@ -100,7 +100,8 @@ mafPipeVolumeSlice_BES::mafPipeVolumeSlice_BES()
   m_SliceDirection  = SLICE_Z;
   m_SliceOpacity  = 1.0;
   m_TextureRes    = 512;
-
+  
+  
   m_XVector[0][0] = 0.0001;	//should be 0 !!! but there is a bug into vtkVolumeSlicer filter
   m_XVector[0][1] = 1;
   m_XVector[0][2] = 0;
@@ -121,7 +122,28 @@ mafPipeVolumeSlice_BES::mafPipeVolumeSlice_BES()
   m_YVector[2][0] = 0;
   m_YVector[2][1] = 1;
   m_YVector[2][2] = 0;
+  /*
+  m_XVector[0][0] = 0;	//should be 0 !!! but there is a bug into vtkVolumeSlicer filter
+  m_XVector[0][1] = 0;
+  m_XVector[0][2] = -1;
+  m_YVector[0][0] = 0;
+  m_YVector[0][1] = 1;
+  m_YVector[0][2] = 0;
 
+  m_XVector[1][0] = 0;
+  m_XVector[1][1] = 0;
+  m_XVector[1][2] = -1;
+  m_YVector[1][0] = -1;
+  m_YVector[1][1] = 0;
+  m_YVector[1][2] = 0;
+
+  m_XVector[2][0] = 0;
+  m_XVector[2][1] = 1;
+  m_XVector[2][2] = 0;
+  m_YVector[2][0] = -1;
+  m_YVector[2][1] = 0;
+  m_YVector[2][2] = 0;
+  */
 	m_ShowSlider = true;
 	m_ShowTICKs	 = false;
   m_EnableGPU = FALSE;
@@ -221,11 +243,14 @@ void mafPipeVolumeSlice_BES::Create(mafSceneNode *n)
 	{
     m_Origin[0] = (b[0] + b[1])*.5;
     m_Origin[1] = (b[2] + b[3])*.5;
+	//m_Origin[0] = (b[2] + b[3])*.5;
+    //m_Origin[1] = (b[0] + b[1])*.5;
     m_Origin[2] = (b[4] + b[5])*.5;
 	}
 
 	if(m_SliceDirection == SLICE_ORTHO)
 	{
+		
     // overwrite the plane vector, because the slices have to be orthogonal
     m_XVector[0][0] = 0.0001;	//modified by Paolo 29-10-2003 should be 0 !!! check into Sasha's filter
     m_XVector[0][1] = 1;
@@ -247,7 +272,29 @@ void mafPipeVolumeSlice_BES::Create(mafSceneNode *n)
     m_YVector[2][0] = 0;
     m_YVector[2][1] = 1;
     m_YVector[2][2] = 0;
+	
+	/*
+		  m_XVector[0][0] = 0;	//should be 0 !!! but there is a bug into vtkVolumeSlicer filter
+  m_XVector[0][1] = 0;
+  m_XVector[0][2] = -1;
+  m_YVector[0][0] = 0;
+  m_YVector[0][1] = 1;
+  m_YVector[0][2] = 0;
 
+  m_XVector[1][0] = 0;
+  m_XVector[1][1] = 0;
+  m_XVector[1][2] = -1;
+  m_YVector[1][0] = -1;
+  m_YVector[1][1] = 0;
+  m_YVector[1][2] = 0;
+
+  m_XVector[2][0] = 0;
+  m_XVector[2][1] = 1;
+  m_XVector[2][2] = 0;
+  m_YVector[2][0] = -1;
+  m_YVector[2][1] = 0;
+  m_YVector[2][2] = 0;
+  */
     for(int i = 0; i < 3; i++)
 		{
 			vtkMath::Normalize(m_XVector[i]);
@@ -334,10 +381,17 @@ void mafPipeVolumeSlice_BES::CreateTICKs()
 	vtk_data->GetBounds(bounds);
 
 	double xmin, xmax, ymin, ymax, zmin, zmax;
+	
 	xmin = bounds[0];
 	xmax = bounds[1];
 	ymin = bounds[2];
 	ymax = bounds[3];
+	/*
+	xmin = bounds[2];
+	xmax = bounds[3];
+	ymin = bounds[0];
+	ymax = bounds[1];
+	*/
 	zmin = bounds[4];
 	zmax = bounds[5];
 
