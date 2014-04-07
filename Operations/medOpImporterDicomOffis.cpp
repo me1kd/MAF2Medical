@@ -1356,10 +1356,54 @@ int medOpImporterDicomOffis::BuildOutputVMEGrayVolumeFromDicom()
 		double orientation[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
 		m_SelectedSeriesSlicesList->Item(m_ZCropBounds[0])->GetData()->GetDcmImageOrientationPatient(orientation);
 
+		/*
 		for(int i = 0; i < 6; i++)
 		{
 			orientation[i] = ceil(orientation[i]-0.5);
 		}
+
+		int swap[3] = {0,1,2};
+		if(orientation[0]!=0) //This is for the purpose of mapping to the right coordinates after rotation. Keewei 20/03/2014
+		{
+			if(orientation[4]!=0)
+			{
+			}
+			else if(orientation[5]!=0)
+			{
+				swap[1] = 2;
+				swap[2] = 1;
+			}
+		}
+		else if(orientation[1]!=0)
+		{
+			if(orientation[3]!=0)
+			{
+				swap[0]=1;
+				swap[1]=0;
+			}
+			else if(orientation[5]!=0)
+			{
+				swap[0]=2;
+				swap[1]=0;
+				swap[2]=1;
+			}
+		}
+		else if(orientation[2]!=0)
+		{
+			if(orientation[3]!=0)
+			{
+				swap[0]=1;
+				swap[1]=2;
+				swap[2]=0;
+			}
+			else if(orientation[4]!=0)
+			{
+				swap[0]=2;
+				swap[1]=1;
+				swap[2]=0;
+			}
+		}
+		*/
 
 		//transform direction cosines to be used to set vtkMatrix
 		/* [ orientation[0]  orientation[1]  orientation[2]  -dst_pos_x ] 
@@ -1390,7 +1434,7 @@ int medOpImporterDicomOffis::BuildOutputVMEGrayVolumeFromDicom()
 		mat->SetElement(3,2,0);
 		mat->SetElement(3,3,1);
 
-
+		/*
 		vtkMAFSmartPointer<vtkDataArray> temp_coord[3];
 		temp_coord[0] = rg_out->GetXCoordinates();
 		temp_coord[1] = rg_out->GetYCoordinates();
@@ -1398,18 +1442,22 @@ int medOpImporterDicomOffis::BuildOutputVMEGrayVolumeFromDicom()
 		
 
 		int temp_dimensions[3];
-		temp_dimensions[0] = temp_coord[1]->GetNumberOfTuples();
-		temp_dimensions[1] = temp_coord[0]->GetNumberOfTuples();
-		temp_dimensions[2] = temp_coord[2]->GetNumberOfTuples();
+		temp_dimensions[0] = temp_coord[swap[0]]->GetNumberOfTuples();
+		temp_dimensions[1] = temp_coord[swap[1]]->GetNumberOfTuples();
+		temp_dimensions[2] = temp_coord[swap[2]]->GetNumberOfTuples();
 
-		rgrid_totvol->SetDimensions(temp_dimensions[1],temp_dimensions[0],temp_dimensions[2]);
-		rgrid_totvol->SetXCoordinates(temp_coord[1]);
-        rgrid_totvol->SetYCoordinates(temp_coord[0]);
-        rgrid_totvol->SetZCoordinates(temp_coord[2]);
+		rgrid_totvol->SetDimensions(temp_dimensions[0],temp_dimensions[1],temp_dimensions[2]);
+		rgrid_totvol->SetXCoordinates(temp_coord[swap[0]]);
+        rgrid_totvol->SetYCoordinates(temp_coord[swap[1]]);
+        rgrid_totvol->SetZCoordinates(temp_coord[swap[2]]);
 
+		vtkMAFSmartPointer<vtkDataArray> temp_scalars[3];
 		rgrid_totvol->GetPointData()->SetScalars(rg_out->GetPointData()->GetScalars());
 
+		//int temp_da = rg_out->GetPointData()->GetScalars()->GetSize();
+
         rgrid_totvol->Update();
+		*/
 
 		/*
 		//Newly added for test with corresponding headers 27/02/2014 Kewei
@@ -1530,7 +1578,7 @@ int medOpImporterDicomOffis::BuildOutputVMEGrayVolumeFromDicom()
 		m_Volume->SetAbsMatrix(boxPose->GetMatrix());
 	}
 
-	m_Volume->SetDataByDetaching(rgrid_totvol,0);
+	m_Volume->SetDataByDetaching(rg_out,0);
 
 	if(m_ResampleFlag == TRUE)
 	{
